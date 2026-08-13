@@ -2,7 +2,7 @@ name: eBay Listing Monitor
 
 on:
   schedule:
-    # Runs every 5 minutes. GitHub may delay this slightly during
+    # Runs every 5 minutes - testing scheduled trigger. GitHub may delay this slightly during
     # high-load periods, but it's typically close to on-time.
     - cron: "*/5 * * * *"
   workflow_dispatch: {}  # lets you manually trigger a run from the Actions tab
