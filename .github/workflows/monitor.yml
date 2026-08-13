@@ -6,7 +6,11 @@ on:
     # high-load periods, but it's typically close to on-time.
     - cron: "*/5 * * * *"
   workflow_dispatch: {}  # lets you manually trigger a run from the Actions tab
+push:
+    branches:
+      - main
 
+      
 permissions:
   contents: write  # needed so the workflow can commit updated seen_items.json
 
