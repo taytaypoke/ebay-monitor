@@ -18,13 +18,14 @@ Configurable search terms below.
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import requests
 
 # ---- Configuration ----------------------------------------------------
 SEARCH_KEYWORDS = "Pokémon Starter Pullover"
-SELLER_USERNAME = "bullseyedeal"
+SELLER_USERNAME = "bullseye_deals"
 MARKETPLACE_ID = "EBAY_US"
 SEEN_ITEMS_FILE = Path(__file__).parent / "seen_items.json"
 # ------------------------------------------------------------------------
@@ -84,22 +85,19 @@ def send_ntfy_alert(topic: str, item: dict) -> None:
     price = f"{price_obj.get('value', '?')} {price_obj.get('currency', '')}".strip()
     url = item.get("itemWebUrl", "")
 
+    # Single combined notification per item (avoids ntfy rate limiting when
+    # multiple new listings appear in the same run).
     resp = requests.post(
         f"https://ntfy.sh/{topic}",
-        data=title.encode("utf-8"),
+        data=f"{price}\n{url}".encode("utf-8"),
         headers={
-            "Title": "eBay listing found!".encode("utf-8"),
+            "Title": title.encode("utf-8"),
             "Priority": "urgent",
             "Tags": "rotating_light",
             "Click": url,
             "Actions": f"view, Open listing, {url}",
         },
-    )
-    # Also send price as a follow-up line for clarity
-    requests.post(
-        f"https://ntfy.sh/{topic}",
-        data=f"Price: {price}\n{url}".encode("utf-8"),
-        headers={"Title": title.encode("utf-8")},
+        timeout=15,
     )
     resp.raise_for_status()
 
@@ -135,8 +133,14 @@ def main() -> None:
             continue
         if item_id not in seen_ids:
             print(f"NEW listing: {item.get('title')} ({item_id})")
-            send_ntfy_alert(ntfy_topic, item)
+            try:
+                send_ntfy_alert(ntfy_topic, item)
+            except requests.exceptions.HTTPError as exc:
+                print(f"  Failed to send notification: {exc}")
+                # Still mark as seen so we don't spam-retry it every run;
+                # it'll show up next time you check ntfy/eBay manually if missed.
             new_ids.add(item_id)
+            time.sleep(1)  # small pause between sends to avoid rate limits
         else:
             print(f"Already seen: {item_id}")
 
